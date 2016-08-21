@@ -1,4 +1,3 @@
-import Lib (inc)
 
 main :: IO ()
-main = print . inc $ (41 :: Int)
+main = putStrLn "Under development. Currently Does nothing"
