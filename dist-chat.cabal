@@ -29,10 +29,16 @@ library
   ghc-options:       -Wall -Werror -O2
   hs-source-dirs:    src
   exposed-modules:   DeltaCRDT
+                   , AntiEntropy
   build-depends:     base >= 4.8 && < 5
                    , lattices >= 1.0
                    , containers >= 0.1
                    , QuickCheck >= 2.1
+                   , hslogger >= 1.2
+                   , bytestring >= 0.9
+                   , network >= 2.6
+                   , stm
+                   , cereal >= 0.1
                    , TotalMap
 
 executable dist-chat-exe
@@ -42,6 +48,8 @@ executable dist-chat-exe
   main-is:           Main.hs
   build-depends:     base >= 4.8 && < 5
                    , dist-chat
+                   , stm
+                   , lattices
 
 test-suite dist-chat-test
   type:              exitcode-stdio-1.0
