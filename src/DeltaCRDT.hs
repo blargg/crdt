@@ -6,6 +6,9 @@ module DeltaCRDT where
 import qualified Data.Set as S
 import GHC.Generics
 import Data.TotalMap
+import Data.Serialize
+import Algebra.Lattice
+import Algebra.Lattice.Ordered
 
 import Test.QuickCheck.Arbitrary
 
@@ -14,6 +17,13 @@ class DCRDT a where
     apply :: Delta a -> a -> a
     merge :: Delta a -> Delta a -> Delta a
 
+
+instance (Ord a) => DCRDT (Ordered a) where
+    data Delta (Ordered a) = DeltaOrdered a deriving (Show, Generic)
+    apply (DeltaOrdered d) a = Ordered d \/ a
+    merge (DeltaOrdered d) (DeltaOrdered d2) = DeltaOrdered . getOrdered $ (Ordered d) \/ (Ordered d2)
+
+instance (Serialize a) => Serialize (Delta (Ordered a))
 
 instance (Ord a) => DCRDT (S.Set a) where
     data Delta (S.Set a) = DeltaSet (S.Set a) deriving (Show, Eq, Generic)
