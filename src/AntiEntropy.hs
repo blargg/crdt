@@ -1,7 +1,10 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DeriveGeneric #-}
 module AntiEntropy where
 
+import GHC.Generics
 import Network.Socket
+import Control.Monad (void)
 import Control.Exception
 import Control.Monad.STM
 import Control.Concurrent.STM.TVar
@@ -9,11 +12,16 @@ import Data.Serialize
 
 import qualified Network.Socket.ByteString as NB
 import Data.ByteString.Char8 (unpack)
+import Data.ByteString (ByteString)
 
 import System.Log.Logger
 
 import DeltaCRDT
 
+type MessageId = Int
+
+data Message = Payload ByteString MessageId | Ack MessageId deriving (Generic)
+instance Serialize Message
 
 recieveNode :: (DCRDT a, Serialize (Delta a), Show a) => TVar a -> String -> IO ()
 recieveNode cdrt port = withSocketsDo $ bracket connectMe close (handler cdrt)
@@ -25,18 +33,23 @@ recieveNode cdrt port = withSocketsDo $ bracket connectMe close (handler cdrt)
 
 handler :: (DCRDT a, Serialize (Delta a), Show a) => TVar a -> Socket -> IO ()
 handler cdrt conn = do
-    print "starting handler"
-    (msg,d) <- NB.recvFrom conn 1024
+    debugM "server.handler" "starting handler"
+    (msg, _) <- NB.recvFrom conn 1024
     putStrLn $ "< " ++ unpack msg
     case decode msg of
-         Left str -> debugM "server.handler" str
-         Right delta -> atomically $ modifyTVar' cdrt (apply delta)
+         Left str -> infoM "server.handler" str
+         Right delta -> addDelta cdrt delta
     atomically (readTVar cdrt) >>= print
-    debugM "server.handler" "read a message"
-    NB.sendTo conn msg d >> handler cdrt conn
+    handler cdrt conn
 
+addDelta :: (DCRDT a) => TVar a -> Delta a -> IO ()
+addDelta cdrt delta = atomically $ modifyTVar cdrt (apply delta)
 
-sendDelta :: (DCRDT a, Serialize (Delta a)) => String -> String -> (Delta a) -> IO ()
+ackDelta :: Socket -> SockAddr -> MessageId -> IO ()
+ackDelta conn otherAddress mId = void $ NB.sendTo conn message otherAddress
+    where message = encode (Ack mId)
+
+sendDelta :: (Serialize (Delta a)) => String -> String -> Delta a -> IO ()
 sendDelta ipAddr port delta = withSocketsDo $ bracket getSocket close talk where
     getSocket = do
         (serveraddr:_) <- getAddrInfo Nothing (Just ipAddr) (Just port)
@@ -45,4 +58,3 @@ sendDelta ipAddr port delta = withSocketsDo $ bracket getSocket close talk where
     talk s = do
         _ <- NB.send s (encode delta)
         debugM "client.talk" "sent a message"
-
