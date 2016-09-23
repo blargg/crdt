@@ -16,16 +16,24 @@ class DCRDT a where
     data Delta a :: *
     apply :: Delta a -> a -> a
 
+class (DCRDT a) => DCRDT' a where
+    isIdempotent :: Delta a -> a -> Bool
 
 instance (Ord a) => DCRDT (Ordered a) where
     data Delta (Ordered a) = DeltaOrdered a deriving (Show, Generic)
     apply (DeltaOrdered d) a = Ordered d \/ a
+
+instance (Ord a) => DCRDT' (Ordered a) where
+    isIdempotent (DeltaOrdered d) (Ordered a) = d < a
 
 instance (Serialize a) => Serialize (Delta (Ordered a))
 
 instance (Ord a) => DCRDT (S.Set a) where
     data Delta (S.Set a) = DeltaSet (S.Set a) deriving (Show, Eq, Generic)
     apply (DeltaSet d) x = d `S.union` x
+
+instance (Ord a) => DCRDT' (S.Set a) where
+    isIdempotent (DeltaSet d) = S.isSubsetOf d
 
 instance (Ord a, Arbitrary a) => Arbitrary (Delta (S.Set a)) where
     arbitrary = DeltaSet . S.fromList <$> arbitrary
