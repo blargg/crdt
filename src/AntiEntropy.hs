@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module AntiEntropy where
 
 import GHC.Generics
@@ -12,7 +13,7 @@ import Data.Serialize
 
 import qualified Network.Socket.ByteString as NB
 import Data.ByteString.Char8 (unpack)
-import Data.ByteString (ByteString)
+import Data.Proxy
 
 import System.Log.Logger
 
@@ -20,8 +21,8 @@ import DeltaCRDT
 
 type MessageId = Int
 
-data Message = Payload ByteString MessageId | Ack MessageId deriving (Generic)
-instance Serialize Message
+data Message a = Payload a MessageId | Ack MessageId deriving (Generic)
+instance (Serialize a) => Serialize (Message a)
 
 recieveNode :: (DCRDT a, Serialize (Delta a), Show a) => TVar a -> String -> IO ()
 recieveNode cdrt port = withSocketsDo $ bracket connectMe close (handler cdrt)
@@ -45,9 +46,9 @@ handler cdrt conn = do
 addDelta :: (DCRDT a) => TVar a -> Delta a -> IO ()
 addDelta cdrt delta = atomically $ modifyTVar cdrt (apply delta)
 
-ackDelta :: Socket -> SockAddr -> MessageId -> IO ()
-ackDelta conn otherAddress mId = void $ NB.sendTo conn message otherAddress
-    where message = encode (Ack mId)
+ackDelta :: forall a. (Serialize a) => Proxy a -> Socket -> SockAddr -> MessageId -> IO ()
+ackDelta _ conn otherAddress mId = void $ NB.sendTo conn message otherAddress
+    where message = encode (Ack mId :: Message a)
 
 sendDelta :: (Serialize (Delta a)) => String -> String -> Delta a -> IO ()
 sendDelta ipAddr port delta = withSocketsDo $ bracket getSocket close talk where
