@@ -10,7 +10,7 @@ import Control.Exception
 import Control.Monad.STM
 import Control.Concurrent.STM.TVar
 import Data.Serialize
-import Data.Map (Map, empty)
+import Data.Map (empty)
 
 import qualified Network.Socket.ByteString as NB
 import Data.ByteString.Char8 (unpack)
@@ -20,19 +20,20 @@ import System.Log.Logger
 
 import DeltaCRDT
 import LabeledSet
+import qualified Data.TotalMap as TM
 
 type MessageId = Int
 
 data Message a = Payload a MessageId | Ack MessageId deriving (Generic)
 instance (Serialize a) => Serialize (Message a)
 
-data NodeState a = NodeState { ackMap :: Map SockAddr MessageId
+data NodeState a = NodeState { ackMap :: TM.TotalMap SockAddr MessageId
                              , deltaMap :: LabeledSet MessageId (Delta a)
                              , currentData :: a
                              }
 
 initialState :: a -> NodeState a
-initialState = NodeState empty (emptySet 0)
+initialState = NodeState (TM.TotalMap 0 empty) (emptySet 0)
 
 recieveNode :: (DCRDT a, Serialize (Delta a), Show a) => TVar (NodeState a) -> String -> IO ()
 recieveNode state port = withSocketsDo $ bracket connectMe close (handler state)
@@ -56,8 +57,14 @@ addDelta :: (DCRDT a) => TVar (NodeState a) -> Delta a -> IO ()
 addDelta nodeState delta = atomically $ modifyTVar nodeState updateState
     where updateState (NodeState ackM deltaM x) = NodeState ackM (fst $ addNext delta deltaM) (apply delta x)
 
-receiveAck :: MessageId -> IO ()
-receiveAck = undefined
+receiveAck :: TVar (NodeState a) -> SockAddr -> MessageId -> IO ()
+receiveAck tns addr m = atomically $ modifyTVar tns (updateAck addr m)
+
+updateAck :: SockAddr -> MessageId -> NodeState a -> NodeState a
+updateAck addr recievedMId (NodeState acks deltas x) = NodeState acks' deltas x
+    where acks' = TM.insert addr m' acks
+          m' = if succ currentMId == recievedMId then recievedMId else currentMId
+          currentMId = TM.lookup addr acks
 
 receiveDelta :: (DCRDT a) => Delta a -> IO ()
 receiveDelta = undefined
