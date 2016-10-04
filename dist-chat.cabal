@@ -30,6 +30,7 @@ library
   hs-source-dirs:    src
   exposed-modules:   DeltaCRDT
                    , AntiEntropy
+  other-modules:     LabeledSet
   build-depends:     base >= 4.8 && < 5
                    , lattices >= 1.0
                    , containers >= 0.1

@@ -10,6 +10,7 @@ import Control.Exception
 import Control.Monad.STM
 import Control.Concurrent.STM.TVar
 import Data.Serialize
+import Data.Map (Map, empty)
 
 import qualified Network.Socket.ByteString as NB
 import Data.ByteString.Char8 (unpack)
@@ -18,33 +19,48 @@ import Data.Proxy
 import System.Log.Logger
 
 import DeltaCRDT
+import LabeledSet
 
 type MessageId = Int
 
 data Message a = Payload a MessageId | Ack MessageId deriving (Generic)
 instance (Serialize a) => Serialize (Message a)
 
-recieveNode :: (DCRDT a, Serialize (Delta a), Show a) => TVar a -> String -> IO ()
-recieveNode cdrt port = withSocketsDo $ bracket connectMe close (handler cdrt)
+data NodeState a = NodeState { ackMap :: Map SockAddr MessageId
+                             , deltaMap :: LabeledSet MessageId (Delta a)
+                             , currentData :: a
+                             }
+
+initialState :: a -> NodeState a
+initialState = NodeState empty (emptySet 0)
+
+recieveNode :: (DCRDT a, Serialize (Delta a), Show a) => TVar (NodeState a) -> String -> IO ()
+recieveNode state port = withSocketsDo $ bracket connectMe close (handler state)
     where
         connectMe = do
             (serveraddr:_) <- getAddrInfo (Just (defaultHints {addrFlags = [AI_PASSIVE]})) Nothing (Just port)
             sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
             bind sock (addrAddress serveraddr) >> return sock
 
-handler :: (DCRDT a, Serialize (Delta a), Show a) => TVar a -> Socket -> IO ()
-handler cdrt conn = do
+handler :: (DCRDT a, Serialize (Delta a), Show a) => TVar (NodeState a) -> Socket -> IO ()
+handler state conn = do
     debugM "server.handler" "starting handler"
     (msg, _) <- NB.recvFrom conn 1024
     putStrLn $ "< " ++ unpack msg
     case decode msg of
          Left str -> infoM "server.handler" str
-         Right delta -> addDelta cdrt delta
-    atomically (readTVar cdrt) >>= print
-    handler cdrt conn
+         Right delta -> addDelta state delta
+    handler state conn
 
-addDelta :: (DCRDT a) => TVar a -> Delta a -> IO ()
-addDelta cdrt delta = atomically $ modifyTVar cdrt (apply delta)
+addDelta :: (DCRDT a) => TVar (NodeState a) -> Delta a -> IO ()
+addDelta nodeState delta = atomically $ modifyTVar nodeState updateState
+    where updateState (NodeState ackM deltaM x) = NodeState ackM (fst $ addNext delta deltaM) (apply delta x)
+
+receiveAck :: MessageId -> IO ()
+receiveAck = undefined
+
+receiveDelta :: (DCRDT a) => Delta a -> IO ()
+receiveDelta = undefined
 
 ackDelta :: forall a. (Serialize a) => Proxy a -> Socket -> SockAddr -> MessageId -> IO ()
 ackDelta _ conn otherAddress mId = void $ NB.sendTo conn message otherAddress

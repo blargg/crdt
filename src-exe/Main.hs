@@ -4,6 +4,9 @@ import System.Environment (getArgs)
 import DeltaCRDT
 import Algebra.Lattice.Ordered
 
+localIP :: String
+localIP = "127.0.0.1"
+
 serverPort :: String
 serverPort = "3333"
 
@@ -17,8 +20,8 @@ main = do
 
 runServer :: IO ()
 runServer = do
-    cdrt <- newTVarIO (Ordered (0::Int))
+    cdrt <- newTVarIO . initialState $ (Ordered 0:: Ordered Int)
     recieveNode cdrt serverPort
 
 runClient :: Int -> IO ()
-runClient value = sendDelta "127.0.0.1" serverPort (DeltaOrdered value)
+runClient value = sendDelta localIP serverPort (DeltaOrdered value)
