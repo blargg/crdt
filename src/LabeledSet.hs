@@ -14,3 +14,9 @@ addNext val (LabeledSet key m) = (LabeledSet (succ key) (M.insert key val m), ke
 
 retreive :: (Ord k) => k -> LabeledSet k a -> Maybe a
 retreive k (LabeledSet _ m) = M.lookup k m
+
+filterWithLabel :: (k -> Bool) -> LabeledSet k a -> LabeledSet k a
+filterWithLabel f (LabeledSet nk ents) = LabeledSet nk (M.filterWithKey (\k _ -> f k) ents)
+
+toList :: LabeledSet k a -> [(k, a)]
+toList = M.toList . entries
