@@ -10,7 +10,6 @@ import Control.Exception
 import Control.Monad.STM
 import Control.Concurrent.STM.TVar
 import Data.Serialize
-import qualified Data.Map as M
 
 import qualified Network.Socket.ByteString as NB
 import Data.ByteString.Char8 (unpack)
@@ -19,20 +18,19 @@ import Data.Proxy
 import System.Log.Logger
 
 import DeltaCRDT
-import LabeledSet
+import Data.MultiAckSet
 
 type MessageId = Int
 
 data Message a = Payload a MessageId | Ack MessageId deriving (Generic)
 instance (Serialize a) => Serialize (Message a)
 
-data NodeState a = NodeState { ackMap :: M.Map SockAddr MessageId
-                             , deltaMap :: LabeledSet MessageId (Delta a)
+data NodeState a = NodeState { ackMap :: MultiAckSet SockAddr MessageId (Delta a)
                              , currentData :: a
                              }
 
 initialState :: a -> NodeState a
-initialState = NodeState M.empty (emptySet 1)
+initialState = NodeState empty
 
 recieveNode :: (DCRDT a, Serialize (Delta a), Show a) => TVar (NodeState a) -> String -> IO ()
 recieveNode state port = withSocketsDo $ bracket connectMe close (handler state)
@@ -45,25 +43,24 @@ recieveNode state port = withSocketsDo $ bracket connectMe close (handler state)
 handler :: (DCRDT a, Serialize (Delta a), Show a) => TVar (NodeState a) -> Socket -> IO ()
 handler state conn = do
     debugM "server.handler" "starting handler"
-    (msg, _) <- NB.recvFrom conn 1024
+    (msg, recvAddress) <- NB.recvFrom conn 1024
     putStrLn $ "< " ++ unpack msg
     case decode msg of
          Left str -> infoM "server.handler" str
-         Right delta -> addDelta state delta
+         Right (Payload delta mID) -> addDelta state recvAddress mID delta
+         Right (Ack mID) -> receiveAck state recvAddress mID
     handler state conn
 
-addDelta :: (DCRDT a) => TVar (NodeState a) -> Delta a -> IO ()
-addDelta nodeState delta = atomically $ modifyTVar nodeState updateState
-    where updateState (NodeState ackM deltaM x) = NodeState ackM (fst $ addNext delta deltaM) (apply delta x)
+addDelta :: (DCRDT a) => TVar (NodeState a) -> SockAddr -> MessageId -> Delta a -> IO ()
+addDelta nodeState n i delta = atomically $ modifyTVar nodeState updateState
+    where updateState (NodeState ackM x) = NodeState (singleAck n i ackM) (apply delta x)
 
 receiveAck :: TVar (NodeState a) -> SockAddr -> MessageId -> IO ()
 receiveAck tns addr m = atomically $ modifyTVar tns (updateAck addr m)
 
 updateAck :: SockAddr -> MessageId -> NodeState a -> NodeState a
-updateAck addr recievedMId (NodeState acks deltas x) = NodeState acks' deltas x
-    where acks' = M.insert addr m' acks
-          m' = if succ currentMId == recievedMId then recievedMId else currentMId
-          currentMId = M.findWithDefault 0 addr acks
+updateAck addr recievedMId (NodeState ackM x) = NodeState ackM' x
+    where ackM' = singleAck addr recievedMId ackM
 
 resendMessages :: IO ()
 resendMessages = undefined

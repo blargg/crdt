@@ -30,7 +30,8 @@ library
   hs-source-dirs:    src
   exposed-modules:   DeltaCRDT
                    , AntiEntropy
-  other-modules:     LabeledSet
+  other-modules:     Data.AckSet
+                   , Data.MultiAckSet
   build-depends:     base >= 4.8 && < 5
                    , lattices >= 1.0
                    , containers >= 0.1
@@ -40,6 +41,7 @@ library
                    , network >= 2.6
                    , stm
                    , cereal >= 0.1
+                   , universe >= 1.0
                    , TotalMap
 
 executable dist-chat-exe
