@@ -42,11 +42,10 @@ recieveNode state port = withSocketsDo $ bracket connectMe close (handler state)
 
 handler :: (DCRDT a, Serialize (Delta a), Show a) => TVar (NodeState a) -> Socket -> IO ()
 handler state conn = do
-    debugM "server.handler" "starting handler"
     (msg, recvAddress) <- NB.recvFrom conn 1024
-    putStrLn $ "< " ++ unpack msg
+    debugM "server.handler" $ "< " ++ unpack msg
     case decode msg of
-         Left str -> infoM "server.handler" str
+         Left str -> warningM "server.handler" str
          Right (Payload delta mID) -> addDelta state recvAddress mID delta
          Right (Ack mID) -> receiveAck state recvAddress mID
     handler state conn
@@ -62,18 +61,31 @@ updateAck :: SockAddr -> MessageId -> NodeState a -> NodeState a
 updateAck addr recievedMId (NodeState ackM x) = NodeState ackM' x
     where ackM' = singleAck addr recievedMId ackM
 
-resendMessages :: IO ()
-resendMessages = undefined
+resendMessages :: (Serialize (Delta a)) => TVar (NodeState a) -> IO ()
+resendMessages tns = do
+    ns <- readTVarIO tns
+    mapM_ (uncurry sendAddr) (messagesToResend ns)
 
-messagesToResend :: (DCRDT a) => NodeState a -> [(SockAddr, Delta a)]
-messagesToResend = undefined
+messagesToResend :: NodeState a -> [(SockAddr, Message (Delta a))]
+messagesToResend (NodeState ackM _) = (\(addr, mid, delta) -> (addr, Payload delta mid)) <$> listTakeMessages 10 ackM
 
 ackDelta :: forall a. (Serialize a) => Proxy a -> Socket -> SockAddr -> MessageId -> IO ()
 ackDelta _ conn otherAddress mId = void $ NB.sendTo conn message otherAddress
     where message = encode (Ack mId :: Message a)
 
-sendDelta :: (Serialize (Delta a)) => String -> String -> Delta a -> IO ()
-sendDelta ipAddr port delta = withSocketsDo $ bracket getSocket close talk where
+sendAddr :: (Serialize a) => SockAddr -> a -> IO ()
+sendAddr addr x = withSocketsDo $ bracket getSocket close talk where
+    getSocket = do
+        (toAddr:_) <- getAddrInfo (Just (defaultHints{addrAddress=addr})) Nothing Nothing
+        s <- socket (addrFamily toAddr) Datagram defaultProtocol
+        connect s (addrAddress toAddr)
+        return s
+    talk s = do
+        _ <- NB.send s (encode x)
+        debugM "client.talk" "sent a message"
+
+simpleSend :: (Serialize a) => String -> String -> a -> IO ()
+simpleSend ipAddr port delta = withSocketsDo $ bracket getSocket close talk where
     getSocket = do
         (serveraddr:_) <- getAddrInfo Nothing (Just ipAddr) (Just port)
         s <- socket (addrFamily serveraddr) Datagram defaultProtocol
