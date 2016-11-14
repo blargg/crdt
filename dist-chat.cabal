@@ -51,8 +51,9 @@ executable dist-chat-exe
   main-is:           Main.hs
   build-depends:     base >= 4.8 && < 5
                    , dist-chat
-                   , stm
+                   , hslogger >= 1.2
                    , lattices
+                   , stm
 
 test-suite dist-chat-test
   type:              exitcode-stdio-1.0

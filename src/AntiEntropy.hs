@@ -51,11 +51,15 @@ handler state conn = do
     handler state conn
 
 addDelta :: (DCRDT a) => TVar (NodeState a) -> SockAddr -> MessageId -> Delta a -> IO ()
-addDelta nodeState n i delta = atomically $ modifyTVar nodeState updateState
+addDelta nodeState n i delta = do
+    atomically $ modifyTVar nodeState updateState
+    debugM "server.addDelta" $ "received delta from <" ++ show n ++ "> with message id " ++ show i
     where updateState (NodeState ackM x) = NodeState (singleAck n i ackM) (apply delta x)
 
 receiveAck :: TVar (NodeState a) -> SockAddr -> MessageId -> IO ()
-receiveAck tns addr m = atomically $ modifyTVar tns (updateAck addr m)
+receiveAck tns addr m = do
+    atomically $ modifyTVar tns (updateAck addr m)
+    debugM "server.receiveAck" $ "Received ack from <" ++ show addr ++ "> Message id " ++ show m
 
 updateAck :: SockAddr -> MessageId -> NodeState a -> NodeState a
 updateAck addr recievedMId (NodeState ackM x) = NodeState ackM' x
@@ -64,7 +68,9 @@ updateAck addr recievedMId (NodeState ackM x) = NodeState ackM' x
 resendMessages :: (Serialize (Delta a)) => TVar (NodeState a) -> IO ()
 resendMessages tns = do
     ns <- readTVarIO tns
-    mapM_ (uncurry sendAddr) (messagesToResend ns)
+    let messages = messagesToResend ns
+    mapM_ (uncurry sendAddr) messages
+    debugM "server.resendMessages" $ "resending " ++ show (length messages) ++ " messages"
 
 messagesToResend :: NodeState a -> [(SockAddr, Message (Delta a))]
 messagesToResend (NodeState ackM _) = (\(addr, mid, delta) -> (addr, Payload delta mid)) <$> listTakeMessages 10 ackM
@@ -92,4 +98,4 @@ simpleSend ipAddr port delta = withSocketsDo $ bracket getSocket close talk wher
         connect s (addrAddress serveraddr) >> return s
     talk s = do
         _ <- NB.send s (encode delta)
-        debugM "client.talk" "sent a message"
+        debugM "simpleSend" "sent a message"

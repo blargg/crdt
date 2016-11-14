@@ -1,8 +1,10 @@
 import AntiEntropy
 import Control.Concurrent.STM.TVar
-import System.Environment (getArgs)
 import DeltaCRDT
 import Algebra.Lattice.Ordered
+
+import System.Environment (getArgs)
+import System.Log.Logger
 
 localIP :: String
 localIP = "127.0.0.1"
@@ -12,6 +14,7 @@ serverPort = "3333"
 
 main :: IO ()
 main = do
+    updateGlobalLogger "" (setLevel DEBUG)
     args <- getArgs
     case args of
          "server":_ -> runServer
