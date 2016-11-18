@@ -27,4 +27,4 @@ runServer = do
     recieveNode cdrt serverPort
 
 runClient :: Int -> IO ()
-runClient value = simpleSend localIP serverPort (Payload (DeltaOrdered value) 1)
+runClient value = simpleSend 9876 localIP serverPort (Payload (DeltaOrdered value) 1)

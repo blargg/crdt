@@ -65,11 +65,11 @@ updateAck :: SockAddr -> MessageId -> NodeState a -> NodeState a
 updateAck addr recievedMId (NodeState ackM x) = NodeState ackM' x
     where ackM' = singleAck addr recievedMId ackM
 
-resendMessages :: (Serialize (Delta a)) => TVar (NodeState a) -> IO ()
-resendMessages tns = do
+resendMessages :: (Serialize (Delta a)) => TVar (NodeState a) -> PortNumber -> IO ()
+resendMessages tns localPort = do
     ns <- readTVarIO tns
     let messages = messagesToResend ns
-    mapM_ (uncurry sendAddr) messages
+    mapM_ (uncurry $ sendAddr localPort) messages
     debugM "server.resendMessages" $ "resending " ++ show (length messages) ++ " messages"
 
 messagesToResend :: NodeState a -> [(SockAddr, Message (Delta a))]
@@ -79,23 +79,26 @@ ackDelta :: forall a. (Serialize a) => Proxy a -> Socket -> SockAddr -> MessageI
 ackDelta _ conn otherAddress mId = void $ NB.sendTo conn message otherAddress
     where message = encode (Ack mId :: Message a)
 
-sendAddr :: (Serialize a) => SockAddr -> a -> IO ()
-sendAddr addr x = withSocketsDo $ bracket getSocket close talk where
+sendAddr :: (Serialize a) => PortNumber -> SockAddr -> a -> IO ()
+sendAddr localPort addr x = withSocketsDo $ bracket getSocket close talk where
     getSocket = do
         (toAddr:_) <- getAddrInfo (Just (defaultHints{addrAddress=addr})) Nothing Nothing
         s <- socket (addrFamily toAddr) Datagram defaultProtocol
         connect s (addrAddress toAddr)
+        bind s (SockAddrInet localPort iNADDR_ANY)
         return s
     talk s = do
         _ <- NB.send s (encode x)
         debugM "client.talk" "sent a message"
 
-simpleSend :: (Serialize a) => String -> String -> a -> IO ()
-simpleSend ipAddr port delta = withSocketsDo $ bracket getSocket close talk where
+simpleSend :: (Serialize a) => PortNumber -> String -> String -> a -> IO ()
+simpleSend localPort ipAddr port delta = withSocketsDo $ bracket getSocket close talk where
     getSocket = do
         (serveraddr:_) <- getAddrInfo Nothing (Just ipAddr) (Just port)
         s <- socket (addrFamily serveraddr) Datagram defaultProtocol
-        connect s (addrAddress serveraddr) >> return s
+        bind s (SockAddrInet localPort iNADDR_ANY)
+        connect s (addrAddress serveraddr)
+        return s
     talk s = do
         _ <- NB.send s (encode delta)
         debugM "simpleSend" "sent a message"
