@@ -1,7 +1,9 @@
 import AntiEntropy
-import Control.Concurrent.STM.TVar
 import DeltaCRDT
 import Algebra.Lattice.Ordered
+import Control.Monad (forever)
+import Control.Concurrent.STM.TVar
+import Control.Concurrent (forkIO, threadDelay)
 
 import System.Environment (getArgs)
 import System.Log.Logger
@@ -24,7 +26,9 @@ main = do
 runServer :: IO ()
 runServer = do
     cdrt <- newTVarIO . initialState $ (Ordered 0:: Ordered Int)
-    recieveNode cdrt serverPort
+    _ <- forkIO $ recieveNode cdrt serverPort
+    _ <- forkIO $ updateNode cdrt 3333
+    forever $ threadDelay 99999999
 
 runClient :: Int -> IO ()
 runClient value = simpleSend 9876 localIP serverPort (Payload (DeltaOrdered value) 1)

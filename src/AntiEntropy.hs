@@ -5,10 +5,11 @@ module AntiEntropy where
 
 import GHC.Generics
 import Network.Socket
-import Control.Monad (void)
+import Control.Monad (void, forever)
 import Control.Exception
 import Control.Monad.STM
 import Control.Concurrent.STM.TVar
+import Control.Concurrent (threadDelay)
 import Data.Serialize
 
 import qualified Network.Socket.ByteString as NB
@@ -64,6 +65,9 @@ receiveAck tns addr m = do
 updateAck :: SockAddr -> MessageId -> NodeState a -> NodeState a
 updateAck addr recievedMId (NodeState ackM x) = NodeState ackM' x
     where ackM' = singleAck addr recievedMId ackM
+
+updateNode :: (Serialize (Delta a)) => TVar (NodeState a) -> PortNumber -> IO ()
+updateNode tns port = forever $ resendMessages tns port >> threadDelay 1000000
 
 resendMessages :: (Serialize (Delta a)) => TVar (NodeState a) -> PortNumber -> IO ()
 resendMessages tns localPort = do
