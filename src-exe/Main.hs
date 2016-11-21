@@ -19,16 +19,21 @@ main = do
     updateGlobalLogger "" (setLevel DEBUG)
     args <- getArgs
     case args of
-         "server":_ -> runServer
+         "server":port:ns -> runServer port ns
          "client":param:_ -> runClient (read param)
          _ -> putStrLn "run as server or client <integer>"
 
-runServer :: IO ()
-runServer = do
-    cdrt <- newTVarIO . initialState $ (Ordered 0:: Ordered Int)
-    _ <- forkIO $ recieveNode cdrt serverPort
-    _ <- forkIO $ updateNode cdrt 3333
+runServer :: String -> [String]-> IO ()
+runServer port ns = do
+    cdrt <- newTVarIO =<< initialState (fmap splitAddress ns) (Ordered 0:: Ordered Int)
+    _ <- forkIO $ recieveNode cdrt port
+    _ <- forkIO $ updateNode cdrt (read port)
     forever $ threadDelay 99999999
+
+splitAddress :: String -> (String, String)
+splitAddress s = case break (== ':') s of
+    (server,':':rs) -> (server, rs)
+    x -> x
 
 runClient :: Int -> IO ()
 runClient value = simpleSend 9876 localIP serverPort (Payload (DeltaOrdered value) 1)
