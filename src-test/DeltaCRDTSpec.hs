@@ -5,6 +5,7 @@ module DeltaCRDTSpec where
 
 import DeltaCRDT
 import Data.Set
+import Algebra.Lattice.Ordered
 
 import Test.Tasty
 import Test.Tasty.QuickCheck
@@ -29,4 +30,31 @@ setIsDCRDT' :: TestTree
 setIsDCRDT' = testGroup "set is DCRDT'"
     [ setIsDCRDT
     , testProperty "isIdempotent iff apply delta x == x" (idempotentCheck :: Delta (Set Int) -> Set Int -> Bool)
+    ]
+
+newtype OrdInt = OrdInt { getOrdInt :: Ordered Int }
+    deriving (Show)
+
+instance Arbitrary OrdInt where
+    arbitrary = OrdInt . Algebra.Lattice.Ordered.Ordered <$> arbitrary
+
+orderedIntApply :: OrdInt -> Delta (Ordered Int) -> Bool
+orderedIntApply (OrdInt x) = applyIsIdempotent x
+
+orderedIntComm :: OrdInt -> Delta (Ordered Int) -> Delta (Ordered Int) -> Bool
+orderedIntComm (OrdInt x) = applyCommutes x
+
+orderedIntIdempotent :: Delta (Ordered Int) -> OrdInt -> Bool
+orderedIntIdempotent delta (OrdInt x) = idempotentCheck delta x
+
+orderedIntIsDCRDT :: TestTree
+orderedIntIsDCRDT = testGroup "Ordered Int is DCRDT"
+    [ testProperty "Apply Idempotent" orderedIntApply
+    , testProperty "Apply Commutes" orderedIntComm
+    ]
+
+orderedIntIsDCRDT' :: TestTree
+orderedIntIsDCRDT' = testGroup "Ordered Int is DCRDT'"
+    [ setIsDCRDT
+    , testProperty "isIdempotent iff apply delta x == x" orderedIntIdempotent
     ]

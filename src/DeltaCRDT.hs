@@ -24,9 +24,12 @@ instance (Ord a) => DCRDT (Ordered a) where
     apply (DeltaOrdered d) a = Ordered d \/ a
 
 instance (Ord a) => DCRDT' (Ordered a) where
-    isIdempotent (DeltaOrdered d) (Ordered a) = d < a
+    isIdempotent (DeltaOrdered d) (Ordered a) = d <= a
 
 instance (Serialize a) => Serialize (Delta (Ordered a))
+
+instance Arbitrary a => Arbitrary (Delta (Ordered a)) where
+    arbitrary = DeltaOrdered <$> arbitrary
 
 instance (Ord a) => DCRDT (S.Set a) where
     data Delta (S.Set a) = DeltaSet (S.Set a) deriving (Show, Eq, Generic)

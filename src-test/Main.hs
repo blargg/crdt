@@ -3,4 +3,7 @@ import Test.Tasty
 import DeltaCRDTSpec
 
 main :: IO ()
-main = defaultMain setIsDCRDT'
+main = defaultMain $ testGroup "all CDRT'"
+    [ setIsDCRDT'
+    , orderedIntIsDCRDT'
+    ]
