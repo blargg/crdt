@@ -46,7 +46,6 @@ library
                    , TotalMap
                    , transformers >= 0.5
                    , mtl >= 2.0
-                   , iproute >= 1.2
 
 executable dist-chat-exe
   default-language:  Haskell2010

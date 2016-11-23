@@ -16,7 +16,6 @@ import Data.Serialize
 import qualified Network.Socket.ByteString as NB
 import Data.ByteString.Char8 (unpack)
 import Data.Proxy
-import qualified Data.IP as IP
 
 import System.Log.Logger
 
@@ -47,25 +46,23 @@ initialState ns x = do
 runNode :: (Show a, DCRDT a, Serialize (Delta a)) => a -> PortNumber -> [String] -> IO ()
 runNode x port ns = do
     cdrt <- newTVarIO =<< initialState (fmap splitAddress ns) x
-    _ <- forkIO $ recieveNode cdrt (show port)
-    _ <- forkIO $ updateNode cdrt port
-    forever $ threadDelay 99999999
+    withSocketsDo $ bracket makeSocket close $ \sock -> do
+        _ <- forkIO $ recieveNode cdrt sock
+        _ <- forkIO $ updateNode cdrt sock
+        forever $ threadDelay 99999999
     where
+        makeSocket = do
+            (serveraddr:_) <- getAddrInfo (Just (defaultHints{addrFlags=[AI_PASSIVE]})) Nothing (Just (show port))
+            sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
+            bind sock (addrAddress serveraddr)
+            return sock
         splitAddress :: String -> (String, String)
         splitAddress s = case break (== ':') s of
             (server,':':rs) -> (server, rs)
             i -> i
 
-recieveNode :: (DCRDT a, Serialize (Delta a), Show a) => TVar (NodeState a) -> String -> IO ()
-recieveNode state port = withSocketsDo $ bracket connectMe close (handler state)
-    where
-        connectMe = do
-            (serveraddr:_) <- getAddrInfo (Just (defaultHints {addrFlags = [AI_PASSIVE]})) Nothing (Just port)
-            sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
-            bind sock (addrAddress serveraddr) >> return sock
-
-handler :: (DCRDT a, Serialize (Delta a), Show a) => TVar (NodeState a) -> Socket -> IO ()
-handler state conn = do
+recieveNode :: (DCRDT a, Serialize (Delta a), Show a) => TVar (NodeState a) -> Socket -> IO ()
+recieveNode state conn = do
     (msg, recvAddress) <- NB.recvFrom conn 1024
     debugM "server.handler" $ "< " ++ unpack msg
     case decode msg of
@@ -73,7 +70,7 @@ handler state conn = do
          Right (Payload delta mID) -> addDelta state recvAddress mID delta
          Right (Ack mID) -> receiveAck state recvAddress mID
          Right Ping -> atomically $ modifyTVar state (addNode recvAddress)
-    handler state conn
+    recieveNode state conn
 
 addDelta :: (DCRDT a) => TVar (NodeState a) -> SockAddr -> MessageId -> Delta a -> IO ()
 addDelta nodeState n i delta = do
@@ -94,14 +91,14 @@ addNode :: SockAddr -> NodeState a -> NodeState a
 addNode addr (NodeState ackM x) = NodeState ackM' x
     where ackM' = addNeighbor addr ackM
 
-updateNode :: (Serialize (Delta a)) => TVar (NodeState a) -> PortNumber -> IO ()
-updateNode tns port = forever $ resendMessages tns port >> threadDelay 1000000
+updateNode :: (Serialize (Delta a)) => TVar (NodeState a) -> Socket -> IO ()
+updateNode tns sock = forever $ resendMessages tns sock >> threadDelay 1000000
 
-resendMessages :: (Serialize (Delta a)) => TVar (NodeState a) -> PortNumber -> IO ()
-resendMessages tns localPort = do
+resendMessages :: (Serialize (Delta a)) => TVar (NodeState a) -> Socket -> IO ()
+resendMessages tns sock = do
     ns <- readTVarIO tns
     let messages = messagesToResend ns
-    mapM_ (uncurry $ sendAddr localPort) messages
+    mapM_ (uncurry $ sendAddr sock) messages
     debugM "server.resendMessages" $ "resending " ++ show (length messages) ++ " messages"
 
 messagesToResend :: NodeState a -> [(SockAddr, Message (Delta a))]
@@ -111,21 +108,10 @@ ackDelta :: forall a. (Serialize a) => Proxy a -> Socket -> SockAddr -> MessageI
 ackDelta _ conn otherAddress mId = void $ NB.sendTo conn message otherAddress
     where message = encode (Ack mId :: Message a)
 
-sendAddr :: (Serialize a) => PortNumber -> SockAddr -> a -> IO ()
-sendAddr localPort (SockAddrInet portNumber host) x = withSocketsDo $ bracket getSocket close talk
-    where
-        getSocket = do
-            debugM "sendAddr" $ "sending to" ++ address ++ ":" ++ show portNumber ++ " from " ++ show localPort
-            (toAddr:_) <- getAddrInfo Nothing (Just address) (Just (show portNumber))
-            s <- socket (addrFamily toAddr) Datagram defaultProtocol
-            connect s (addrAddress toAddr)
-            bind s (SockAddrInet localPort iNADDR_ANY)
-            return s
-        talk s = do
-            _ <- NB.send s (encode x)
+sendAddr :: (Serialize a) => Socket -> SockAddr -> a -> IO ()
+sendAddr sock addr x = do
+            _ <- NB.sendTo sock (encode x) addr
             debugM "client.talk" "sent a message"
-        address = show (IP.fromHostAddress host)
-sendAddr _ _ _ = debugM "sendaddr" "strange address"
 
 simpleSend :: (Serialize a) => PortNumber -> String -> String -> a -> IO ()
 simpleSend localPort ipAddr port delta = withSocketsDo $ bracket getSocket close talk where
