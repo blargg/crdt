@@ -10,7 +10,7 @@ import Control.Monad (void, forever)
 import Control.Exception
 import Control.Monad.STM
 import Control.Concurrent.STM.TVar
-import Control.Concurrent (threadDelay)
+import Control.Concurrent (forkIO, threadDelay)
 import Data.Serialize
 
 import qualified Network.Socket.ByteString as NB
@@ -43,6 +43,18 @@ initialState ns x = do
     rs <- getAddrs ns
     infoM "initialState" $ show rs
     return $ NodeState (setWithNeighbors rs) x
+
+runNode :: (Show a, DCRDT a, Serialize (Delta a)) => a -> PortNumber -> [String] -> IO ()
+runNode x port ns = do
+    cdrt <- newTVarIO =<< initialState (fmap splitAddress ns) x
+    _ <- forkIO $ recieveNode cdrt (show port)
+    _ <- forkIO $ updateNode cdrt port
+    forever $ threadDelay 99999999
+    where
+        splitAddress :: String -> (String, String)
+        splitAddress s = case break (== ':') s of
+            (server,':':rs) -> (server, rs)
+            i -> i
 
 recieveNode :: (DCRDT a, Serialize (Delta a), Show a) => TVar (NodeState a) -> String -> IO ()
 recieveNode state port = withSocketsDo $ bracket connectMe close (handler state)
