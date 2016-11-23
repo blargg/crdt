@@ -67,15 +67,16 @@ recieveNode state conn = do
     debugM "server.handler" $ "< " ++ unpack msg
     case decode msg of
          Left str -> warningM "server.handler" str
-         Right (Payload delta mID) -> addDelta state recvAddress mID delta
+         Right (Payload delta mID) -> addDelta state conn recvAddress mID delta
          Right (Ack mID) -> receiveAck state recvAddress mID
          Right Ping -> atomically $ modifyTVar state (addNode recvAddress)
     recieveNode state conn
 
-addDelta :: (DCRDT a) => TVar (NodeState a) -> SockAddr -> MessageId -> Delta a -> IO ()
-addDelta nodeState n i delta = do
+addDelta :: forall a. (DCRDT a, Serialize (Delta a)) => TVar (NodeState a) -> Socket -> SockAddr -> MessageId -> Delta a -> IO ()
+addDelta nodeState s n i delta = do
     atomically $ modifyTVar nodeState updateState
     debugM "server.addDelta" $ "received delta from <" ++ show n ++ "> with message id " ++ show i
+    ackDelta (Proxy :: Proxy (Delta a)) s n i
     where updateState (NodeState ackM x) = NodeState (multiCast delta ackM) (apply delta x)
 
 receiveAck :: TVar (NodeState a) -> SockAddr -> MessageId -> IO ()
@@ -105,7 +106,9 @@ messagesToResend :: NodeState a -> [(SockAddr, Message (Delta a))]
 messagesToResend (NodeState ackM _) = (\(addr, mid, delta) -> (addr, Payload delta mid)) <$> listTakeMessages 10 ackM
 
 ackDelta :: forall a. (Serialize a) => Proxy a -> Socket -> SockAddr -> MessageId -> IO ()
-ackDelta _ conn otherAddress mId = void $ NB.sendTo conn message otherAddress
+ackDelta _ conn otherAddress mId = do
+    debugM "ackDelta" $ "ack message id " ++ show mId ++ " to address " ++ show otherAddress
+    void $ NB.sendTo conn message otherAddress
     where message = encode (Ack mId :: Message a)
 
 sendAddr :: (Serialize a) => Socket -> SockAddr -> a -> IO ()
