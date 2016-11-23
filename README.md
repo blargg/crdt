@@ -1,4 +1,4 @@
-dist-chat
+crdt
 ==========
 
 New Haskell project using stack template `tasty-travis`.
