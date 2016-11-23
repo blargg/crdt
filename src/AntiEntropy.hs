@@ -6,7 +6,7 @@ module AntiEntropy where
 import GHC.Generics
 import Network.Socket
 import NetworkUtil
-import Control.Monad (void, forever)
+import Control.Monad (void, forever, unless)
 import Control.Exception
 import Control.Monad.STM
 import Control.Concurrent.STM.TVar
@@ -43,7 +43,7 @@ initialState ns x = do
     infoM "initialState" $ show rs
     return $ NodeState (setWithNeighbors rs) x
 
-runNode :: (Show a, DCRDT a, Serialize (Delta a)) => a -> PortNumber -> [String] -> IO ()
+runNode :: (Show a, DCRDT' a, Serialize (Delta a)) => a -> PortNumber -> [String] -> IO ()
 runNode x port ns = do
     cdrt <- newTVarIO =<< initialState (fmap splitAddress ns) x
     withSocketsDo $ bracket makeSocket close $ \sock -> do
@@ -61,7 +61,7 @@ runNode x port ns = do
             (server,':':rs) -> (server, rs)
             i -> i
 
-recieveNode :: (DCRDT a, Serialize (Delta a), Show a) => TVar (NodeState a) -> Socket -> IO ()
+recieveNode :: (DCRDT' a, Serialize (Delta a), Show a) => TVar (NodeState a) -> Socket -> IO ()
 recieveNode state conn = do
     (msg, recvAddress) <- NB.recvFrom conn 1024
     debugM "server.handler" $ "< " ++ unpack msg
@@ -72,10 +72,12 @@ recieveNode state conn = do
          Right Ping -> atomically $ modifyTVar state (addNode recvAddress)
     recieveNode state conn
 
-addDelta :: forall a. (DCRDT a, Serialize (Delta a)) => TVar (NodeState a) -> Socket -> SockAddr -> MessageId -> Delta a -> IO ()
+addDelta :: forall a. (DCRDT' a, Serialize (Delta a)) => TVar (NodeState a) -> Socket -> SockAddr -> MessageId -> Delta a -> IO ()
 addDelta nodeState s n i delta = do
-    atomically $ modifyTVar nodeState updateState
     debugM "server.addDelta" $ "received delta from <" ++ show n ++ "> with message id " ++ show i
+    atomically $ do
+        value <- currentData <$> readTVar nodeState
+        unless (isIdempotent delta value) $ modifyTVar nodeState updateState
     ackDelta (Proxy :: Proxy (Delta a)) s n i
     where updateState (NodeState ackM x) = NodeState (multiCast delta ackM) (apply delta x)
 
