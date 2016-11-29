@@ -1,7 +1,10 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module AntiEntropy where
+module AntiEntropy ( emptyState
+                   , initialState
+                   , runNode
+                   ) where
 
 import GHC.Generics
 import Network.Socket
@@ -87,8 +90,9 @@ receiveAck tns addr m = do
     debugM "server.receiveAck" $ "Received ack from <" ++ show addr ++ "> Message id " ++ show m
 
 updateAck :: SockAddr -> MessageId -> NodeState a -> NodeState a
-updateAck addr recievedMId (NodeState ackM x) = NodeState ackM' x
-    where ackM' = singleAck addr recievedMId ackM
+updateAck addr recievedMId ns = NodeState ackM' x
+    where ackM' = singleAck addr recievedMId (ackMap ns)
+          x = currentData ns
 
 addNode :: SockAddr -> NodeState a -> NodeState a
 addNode addr (NodeState ackM x) = NodeState ackM' x
@@ -117,16 +121,3 @@ sendAddr :: (Serialize a) => Socket -> SockAddr -> a -> IO ()
 sendAddr sock addr x = do
             _ <- NB.sendTo sock (encode x) addr
             debugM "client.talk" "sent a message"
-
-simpleSend :: (Serialize a) => PortNumber -> String -> String -> a -> IO ()
-simpleSend localPort ipAddr port delta = withSocketsDo $ bracket getSocket close talk where
-    getSocket = do
-        (serveraddr:_) <- getAddrInfo Nothing (Just ipAddr) (Just port)
-        debugM "simpleSend" $ "server addr " ++ show serveraddr
-        s <- socket (addrFamily serveraddr) Datagram defaultProtocol
-        bind s (SockAddrInet localPort iNADDR_ANY)
-        connect s (addrAddress serveraddr)
-        return s
-    talk s = do
-        _ <- NB.send s (encode delta)
-        debugM "simpleSend" "sent a message"
