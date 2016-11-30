@@ -1,8 +1,10 @@
 import AntiEntropy
 import Algebra.Lattice.Ordered
-import Control.Monad (when)
+import DeltaCRDT
+import Control.Monad (when, forever)
 import Options.Applicative
 import Network.Socket (PortNumber(..))
+import Text.Read (readMaybe)
 
 import System.Log.Logger
 
@@ -36,4 +38,11 @@ main :: IO ()
 main = do
     settings <- execParser programSettings
     when (debug settings) $ updateGlobalLogger "" (setLevel DEBUG)
-    runNode (Ordered (0::Int)) (port settings) (neighborURLs settings)
+    (addDeltaCallback, getData) <- runNode (Ordered (0::Int)) (port settings) (neighborURLs settings)
+    forever $ do
+        line <- getLine
+        case line of
+            "show" -> getData >>= print
+            raw -> case readMaybe raw of
+                Just val -> addDeltaCallback (DeltaOrdered val)
+                Nothing -> putStrLn "Could not read input"
