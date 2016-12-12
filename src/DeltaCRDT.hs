@@ -1,12 +1,14 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 module DeltaCRDT where
 
 import qualified Data.Set as S
 import GHC.Generics
 import Data.TotalMap
 import Data.Serialize
+import Data.Universe
 import Algebra.Lattice
 import Algebra.Lattice.Ordered
 
@@ -38,10 +40,19 @@ instance (Ord a) => DCRDT (S.Set a) where
 instance (Ord a) => DCRDT' (S.Set a) where
     isIdempotent (DeltaSet d) = S.isSubsetOf d
 
+instance (Ord a, Serialize a) => Serialize (Delta (S.Set a))
+
 instance (Ord a, Arbitrary a) => Arbitrary (Delta (S.Set a)) where
     arbitrary = DeltaSet . S.fromList <$> arbitrary
 
 
 instance (Ord k, DCRDT a) => DCRDT (TotalMap k a) where
     data Delta (TotalMap k a) = DeltaTotalMap (TotalMap k (Delta a))
+        deriving (Generic)
     apply (DeltaTotalMap d) x = apply <$> d <*> x
+
+instance (Universe k, Ord k, DCRDT' a) => DCRDT' (TotalMap k a) where
+    isIdempotent (DeltaTotalMap dm) tm = foldJoinSemiLattice True isIdemMap
+        where isIdemMap = isIdempotent <$> dm <*> tm
+
+instance (Ord k, Serialize k, DCRDT a, Serialize (Delta a)) => Serialize (Delta (TotalMap k a))
