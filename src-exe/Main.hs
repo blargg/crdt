@@ -1,5 +1,6 @@
 import AntiEntropy
-import Algebra.Lattice.Ordered
+import Data.Set (Set)
+import qualified Data.Set as S
 import DeltaCRDT
 import Control.Monad (when, forever)
 import Options.Applicative
@@ -38,11 +39,11 @@ main :: IO ()
 main = do
     settings <- execParser programSettings
     when (debug settings) $ updateGlobalLogger "" (setLevel DEBUG)
-    (addDeltaCallback, getData) <- runNode (Ordered (0::Int)) (port settings) (neighborURLs settings)
+    (addDeltaCallback, getData) <- runNode (S.empty::Set Int) (port settings) (neighborURLs settings)
     forever $ do
         line <- getLine
         case line of
             "show" -> getData >>= print
             raw -> case readMaybe raw of
-                Just val -> addDeltaCallback (DeltaOrdered val)
+                Just val -> addDeltaCallback (DeltaSet (S.singleton val))
                 Nothing -> putStrLn "Could not read input"

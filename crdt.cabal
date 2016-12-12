@@ -53,6 +53,7 @@ executable crdt-exe
   hs-source-dirs:    src-exe
   main-is:           Main.hs
   build-depends:     base >= 4.8 && < 5
+                   , containers >= 0.1
                    , crdt
                    , hslogger >= 1.2
                    , lattices
