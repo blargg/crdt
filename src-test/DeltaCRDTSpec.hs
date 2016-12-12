@@ -17,8 +17,7 @@ applyCommutes :: (Eq a, DCRDT a) => a -> Delta a -> Delta a -> Bool
 applyCommutes a d1 d2 = apply d2 (apply d1 a) == apply d1 (apply d2 a)
 
 idempotentCheck :: (DCRDT' a, Eq a) => Delta a -> a -> Bool
-idempotentCheck d x = if isIdempotent d x then apply d x == x
-                                          else apply d x /= x
+idempotentCheck d x = isIdempotent d x == (apply d x == x)
 
 setIsDCRDT :: TestTree
 setIsDCRDT = testGroup "set is DCRDT"
