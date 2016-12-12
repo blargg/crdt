@@ -14,10 +14,26 @@ import Algebra.Lattice.Ordered
 
 import Test.QuickCheck.Arbitrary
 
+-- |
+-- Defines a Delta Conflict-free Replicated Data Type
+-- Semilattice @a@ with action @Delta a@
+-- Adheres to the following rules
+--
+-- @
+-- apply delta (apply delta x) == apply delta x
+-- apply d2 (apply d1 x) == apply d1 (apply d2 x)
+-- @
 class DCRDT a where
     data Delta a :: *
     apply :: Delta a -> a -> a
 
+-- |
+-- a @DCRDT@ which can additionally check if the application of the delta
+-- would change the data or not.
+--
+-- @
+-- isIdempotent d x == (apply d x == x)
+-- @
 class (DCRDT a) => DCRDT' a where
     isIdempotent :: Delta a -> a -> Bool
 
