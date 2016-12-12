@@ -1,18 +1,18 @@
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies      #-}
 module DeltaCRDT where
 
-import qualified Data.Set as S
-import GHC.Generics
-import Data.TotalMap
-import Data.Serialize
-import Data.Universe
-import Algebra.Lattice
-import Algebra.Lattice.Ordered
+import           Algebra.Lattice
+import           Algebra.Lattice.Ordered
+import           Data.Serialize
+import qualified Data.Set                  as S
+import           Data.TotalMap
+import           Data.Universe
+import           GHC.Generics
 
-import Test.QuickCheck.Arbitrary
+import           Test.QuickCheck.Arbitrary
 
 -- |
 -- Defines a Delta Conflict-free Replicated Data Type
