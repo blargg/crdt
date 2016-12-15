@@ -30,6 +30,7 @@ library
   hs-source-dirs:    src
   exposed-modules:   DeltaCRDT
                    , AntiEntropy
+                   , Algebra.SemiLatticeAction
   other-modules:     Data.AckSet
                    , Data.MultiAckSet
                    , NetworkUtil
@@ -68,6 +69,7 @@ test-suite crdt-test
   hs-source-dirs:    src-test
   main-is:           Main.hs
   other-modules:     DeltaCRDTSpec
+                   , SemiLatticeActionSpec
   build-depends:     base >= 4.8 && < 5
                    , tasty >= 0.11
                    , tasty-hunit >= 0.9
