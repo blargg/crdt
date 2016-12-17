@@ -1,11 +1,13 @@
-import Test.Tasty
+import           Test.Tasty
 
-import DeltaCRDTSpec
-import SemiLatticeActionSpec
+import           DeltaCRDTSpec
+import           LesserActionSpec
+import           SemiLatticeActionSpec
 
 main :: IO ()
-main = defaultMain $ testGroup "all CDRT'"
+main = defaultMain $ testGroup "all"
     [ setIsDCRDT'
     , orderedIntIsDCRDT'
     , setIsSemiLatticeAction
+    , setIsJoinLesserAction
     ]

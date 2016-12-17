@@ -12,5 +12,7 @@ import           Algebra.Lattice
 class (JoinSemiLattice s) => JoinSemiLatticeAction s a where
     apply :: s -> a -> a
 
+-- |
+-- When type @a@ is acting on type @a@, use the join action
 instance (JoinSemiLattice a) => JoinSemiLatticeAction a a where
     apply = (\/)
