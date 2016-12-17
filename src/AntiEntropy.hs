@@ -22,7 +22,8 @@ import Data.Proxy
 
 import System.Log.Logger
 
-import DeltaCRDT
+import Algebra.SemiLatticeAction
+import Algebra.LesserAction
 import Data.MultiAckSet
 
 type MessageId = Int
@@ -33,20 +34,20 @@ data Message a = Payload a MessageId
                 deriving (Generic)
 instance (Serialize a) => Serialize (Message a)
 
-data NodeState a = NodeState { ackMap :: MultiAckSet SockAddr MessageId (Delta a)
+data NodeState d a = NodeState { ackMap :: MultiAckSet SockAddr MessageId d
                              , currentData :: a
                              }
 
-emptyState :: a -> NodeState a
+emptyState :: a -> NodeState d a
 emptyState = NodeState empty
 
-initialState :: [(String, String)] -> a -> IO (NodeState a)
+initialState :: [(String, String)] -> a -> IO (NodeState d a)
 initialState ns x = do
     rs <- getAddrs ns
     infoM "initialState" $ show rs
     return $ NodeState (setWithNeighbors rs) x
 
-runNode :: (Show a, DCRDT' a, Serialize (Delta a)) => a -> PortNumber -> [String] -> IO (Delta a -> IO (), IO a)
+runNode :: (Show a, JoinLesserAction d a, Serialize d) => a -> PortNumber -> [String] -> IO (d -> IO (), IO a)
 runNode x port ns = do
     cdrt <- newTVarIO =<< initialState (fmap splitAddress ns) x
     _ <- forkIO $ withSocketsDo $ bracket makeSocket close $ \sock -> do
@@ -65,7 +66,7 @@ runNode x port ns = do
             (server,':':rs) -> (server, rs)
             i -> i
 
-recieveNode :: (DCRDT' a, Serialize (Delta a), Show a) => TVar (NodeState a) -> Socket -> IO ()
+recieveNode :: (JoinLesserAction d a, Serialize d, Show a) => TVar (NodeState d a) -> Socket -> IO ()
 recieveNode state conn = do
     (msg, recvAddress) <- NB.recvFrom conn 1024
     debugM "server.handler" $ "< " ++ unpack msg
@@ -76,44 +77,44 @@ recieveNode state conn = do
          Right Ping -> atomically $ modifyTVar state (addNode recvAddress)
     recieveNode state conn
 
-addDelta :: (DCRDT' a) => TVar (NodeState a) -> Delta a -> IO ()
+addDelta :: (JoinLesserAction d a) => TVar (NodeState d a) -> d -> IO ()
 addDelta nodeState delta =
     atomically $ do
         value <- currentData <$> readTVar nodeState
-        unless (isIdempotent delta value) $ modifyTVar nodeState updateState
+        unless (delta `joinLesserEq` value) $ modifyTVar nodeState updateState
     where updateState (NodeState ackM x) = NodeState (multiCast delta ackM) (apply delta x)
 
-handleDelta :: forall a. (DCRDT' a, Serialize (Delta a)) => TVar (NodeState a) -> Socket -> SockAddr -> MessageId -> Delta a -> IO ()
+handleDelta :: forall d a. (JoinLesserAction d a, Serialize d) => TVar (NodeState d a) -> Socket -> SockAddr -> MessageId -> d -> IO ()
 handleDelta nodeState s n i delta = do
     debugM "server.addDelta" $ "received delta from <" ++ show n ++ "> with message id " ++ show i
     addDelta nodeState delta
-    ackDelta (Proxy :: Proxy (Delta a)) s n i
+    ackDelta (Proxy :: Proxy d) s n i
 
-receiveAck :: TVar (NodeState a) -> SockAddr -> MessageId -> IO ()
+receiveAck :: TVar (NodeState d a) -> SockAddr -> MessageId -> IO ()
 receiveAck tns addr m = do
     atomically $ modifyTVar tns (updateAck addr m)
     debugM "server.receiveAck" $ "Received ack from <" ++ show addr ++ "> Message id " ++ show m
 
-updateAck :: SockAddr -> MessageId -> NodeState a -> NodeState a
+updateAck :: SockAddr -> MessageId -> NodeState d a -> NodeState d a
 updateAck addr recievedMId ns = NodeState ackM' x
     where ackM' = singleAck addr recievedMId (ackMap ns)
           x = currentData ns
 
-addNode :: SockAddr -> NodeState a -> NodeState a
+addNode :: SockAddr -> NodeState d a -> NodeState d a
 addNode addr (NodeState ackM x) = NodeState ackM' x
     where ackM' = addNeighbor addr ackM
 
-updateNode :: (Serialize (Delta a)) => TVar (NodeState a) -> Socket -> IO ()
+updateNode :: (Serialize d) => TVar (NodeState d a) -> Socket -> IO ()
 updateNode tns sock = forever $ resendMessages tns sock >> threadDelay 1000000
 
-resendMessages :: (Serialize (Delta a)) => TVar (NodeState a) -> Socket -> IO ()
+resendMessages :: (Serialize d) => TVar (NodeState d a) -> Socket -> IO ()
 resendMessages tns sock = do
     ns <- readTVarIO tns
     let messages = messagesToResend ns
     mapM_ (uncurry $ sendAddr sock) messages
     debugM "server.resendMessages" $ "resending " ++ show (length messages) ++ " messages"
 
-messagesToResend :: NodeState a -> [(SockAddr, Message (Delta a))]
+messagesToResend :: NodeState d a -> [(SockAddr, Message d)]
 messagesToResend (NodeState ackM _) = (\(addr, mid, delta) -> (addr, Payload delta mid)) <$> listTakeMessages 10 ackM
 
 ackDelta :: forall a. (Serialize a) => Proxy a -> Socket -> SockAddr -> MessageId -> IO ()

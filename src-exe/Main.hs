@@ -1,7 +1,6 @@
 import AntiEntropy
 import Data.Set (Set)
 import qualified Data.Set as S
-import DeltaCRDT
 import Control.Monad (when, forever)
 import Options.Applicative
 import Network.Socket (PortNumber(..))
@@ -45,5 +44,5 @@ main = do
         case line of
             "show" -> getData >>= print
             raw -> case readMaybe raw of
-                Just val -> addDeltaCallback (DeltaSet (S.singleton val))
+                Just val -> addDeltaCallback (S.singleton (val::Int))
                 Nothing -> putStrLn "Could not read input"
