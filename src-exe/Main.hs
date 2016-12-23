@@ -1,10 +1,9 @@
 import AntiEntropy
-import Data.Set (Set)
-import qualified Data.Set as S
 import Control.Monad (when, forever)
 import Options.Applicative
 import Network.Socket (PortNumber(..))
-import Text.Read (readMaybe)
+import Data.ChatData (ChatData)
+import qualified Data.ChatData as CD
 
 import System.Log.Logger
 
@@ -38,11 +37,9 @@ main :: IO ()
 main = do
     settings <- execParser programSettings
     when (debug settings) $ updateGlobalLogger "" (setLevel DEBUG)
-    (addDeltaCallback, getData) <- runNode (S.empty::Set Int) (port settings) (neighborURLs settings)
+    (addDeltaCallback, getData) <- runNode (CD.empty:: ChatData String) (port settings) (neighborURLs settings)
     forever $ do
         line <- getLine
         case line of
             "show" -> getData >>= print
-            raw -> case readMaybe raw of
-                Just val -> addDeltaCallback (S.singleton (val::Int))
-                Nothing -> putStrLn "Could not read input"
+            raw -> addDeltaCallback . CD.addMessageDelta raw =<< getData

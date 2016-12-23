@@ -32,6 +32,7 @@ library
                    , AntiEntropy
                    , Algebra.SemiLatticeAction
                    , Algebra.LesserAction
+                   , Data.ChatData
   other-modules:     Data.AckSet
                    , Data.MultiAckSet
                    , NetworkUtil

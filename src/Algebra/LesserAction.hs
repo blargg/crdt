@@ -1,4 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
+
 module Algebra.LesserAction where
 
 
@@ -6,6 +9,8 @@ import           Algebra.Lattice.Ordered
 import           Algebra.SemiLatticeAction
 import           Data.Set                  (Set)
 import qualified Data.Set                  as S
+import Data.Map (Map)
+import qualified Data.Map as M
 
 -- |
 -- Check if applying the semilattice value would have any affect
@@ -20,3 +25,13 @@ instance (Ord a) => JoinLesserAction (Ordered a) (Ordered a) where
 
 instance (Ord a) => JoinLesserAction (Set a) (Set a) where
     action `joinLesserEq` state = action `S.isSubsetOf` state
+
+instance (JoinLesserAction s a, JoinLesserAction t b) => JoinLesserAction (s, t) (a, b) where
+    (s1, s2) `joinLesserEq` (a1, a2) = left && right
+        where left = s1 `joinLesserEq` a1
+              right = s2 `joinLesserEq` a2
+
+instance (Ord k, JoinSemiLatticeAction (Map k a) (Map k b), JoinLesserAction a b) => JoinLesserAction (Map k a) (Map k b) where
+    s `joinLesserEq` x = subset && allLesser
+        where subset = S.isSubsetOf (M.keysSet s) (M.keysSet x)
+              allLesser = and $ M.intersectionWith joinLesserEq s x

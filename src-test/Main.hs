@@ -8,6 +8,6 @@ main :: IO ()
 main = defaultMain $ testGroup "all"
     [ setIsDCRDT'
     , orderedIntIsDCRDT'
-    , setIsSemiLatticeAction
-    , setIsJoinLesserAction
+    , allLesserAction
+    , allSemiLatticeAction
     ]
