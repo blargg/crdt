@@ -1,5 +1,5 @@
 name:                crdt
-version:             0.1.0.0
+version:             0.2.0.0
 synopsis:            Distributed chat program
 description:         Please see README.md
 
@@ -28,8 +28,7 @@ library
   default-language:  Haskell2010
   ghc-options:       -Wall -Werror -O2
   hs-source-dirs:    src
-  exposed-modules:   DeltaCRDT
-                   , AntiEntropy
+  exposed-modules:   AntiEntropy
                    , Algebra.SemiLatticeAction
                    , Algebra.LesserAction
                    , Data.ChatData
@@ -70,8 +69,7 @@ test-suite crdt-test
   ghc-options:       -Wall -Werror -O2 -Wall -threaded -rtsopts -with-rtsopts=-N
   hs-source-dirs:    src-test
   main-is:           Main.hs
-  other-modules:     DeltaCRDTSpec
-                   , SemiLatticeActionSpec
+  other-modules:     SemiLatticeActionSpec
                    , LesserActionSpec
   build-depends:     base >= 4.8 && < 5
                    , tasty >= 0.11
