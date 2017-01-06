@@ -40,6 +40,7 @@ packages:
 - location:
     git: https://github.com/blargg/TotalMap
     commit: f2536ded52ca6d98a133847571f6878ca5c4f598
+  extra-dep: true
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
 extra-deps: []
