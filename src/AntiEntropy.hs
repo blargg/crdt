@@ -15,6 +15,7 @@ import Control.Monad.STM
 import Control.Concurrent.STM.TVar
 import Control.Concurrent (forkIO, threadDelay)
 import Data.Serialize
+import Data.Maybe (fromMaybe)
 
 import qualified Network.Socket.ByteString as NB
 import Data.ByteString.Char8 (unpack)
@@ -78,11 +79,16 @@ recieveNode state conn = do
     recieveNode state conn
 
 addDelta :: (JoinLesserAction d a) => TVar (NodeState d a) -> d -> IO ()
-addDelta nodeState delta =
+addDelta nodeState delta = do
     atomically $ do
         value <- currentData <$> readTVar nodeState
         unless (delta `joinLesserEq` value) $ modifyTVar nodeState updateState
-    where updateState (NodeState ackM x) = NodeState (multiCast delta ackM) (apply delta x)
+    canAdd <- canMultiCast . ackMap <$> readTVarIO nodeState
+    unless canAdd $ warningM "server.addDelta" "MultiAckSet ran out of fresh IDs, cannot broadcast new deltas"
+    where updateState (NodeState ackM x) = NodeState (quietMultiCast delta ackM) (apply delta x)
+
+quietMultiCast :: (Ord i) => a -> MultiAckSet n i a -> MultiAckSet n i a
+quietMultiCast x ack = fromMaybe ack (multiCast x ack)
 
 handleDelta :: forall d a. (JoinLesserAction d a, Serialize d) => TVar (NodeState d a) -> Socket -> SockAddr -> MessageId -> d -> IO ()
 handleDelta nodeState s n i delta = do

@@ -1,5 +1,6 @@
 module Data.MultiAckSet ( MultiAckSet()
                         , addNeighbor
+                        , canMultiCast
                         , empty
                         , neighbors
                         , multiCast
@@ -29,8 +30,11 @@ addNeighbor n = MultiAckSet . M.insertWith (flip const) n AS.empty . toMap
 neighbors :: MultiAckSet n i a -> S.Set n
 neighbors = M.keysSet . toMap
 
-multiCast :: (Ord i) => a -> MultiAckSet n i a -> MultiAckSet n i a
-multiCast x (MultiAckSet m) = MultiAckSet $ fmap (insert x) m
+multiCast :: (Ord i) => a -> MultiAckSet n i a -> Maybe (MultiAckSet n i a)
+multiCast x (MultiAckSet m) = MultiAckSet <$> traverse (insert x) m
+
+canMultiCast :: MultiAckSet n i a -> Bool
+canMultiCast (MultiAckSet m) = all canInsert m
 
 listMessages :: MultiAckSet n i a -> [(n, i, a)]
 listMessages mack = do
