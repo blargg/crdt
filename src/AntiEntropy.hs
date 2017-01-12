@@ -18,7 +18,6 @@ import Data.Serialize
 import Data.Maybe (fromMaybe)
 
 import qualified Network.Socket.ByteString as NB
-import Data.ByteString.Char8 (unpack)
 import Data.Proxy
 
 import System.Log.Logger
@@ -69,7 +68,7 @@ runNode x port ns = do
 recieveNode :: (JoinLesserAction d a, Serialize d, Show a) => TVar (NodeState d a) -> Socket -> IO ()
 recieveNode state conn = do
     (msg, recvAddress) <- NB.recvFrom conn 1024
-    debugM "server.handler" $ "< " ++ unpack msg
+    debugM "server.handler" "received packet"
     case decode msg of
          Left str -> warningM "server.handler" str
          Right (Payload delta mID) -> handleDelta state conn recvAddress mID delta
