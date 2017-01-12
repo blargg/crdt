@@ -53,8 +53,7 @@ runNode x port ns = do
     cdrt <- newTVarIO =<< initialState (fmap splitAddress ns) x
     _ <- forkIO $ withSocketsDo $ bracket makeSocket close $ \sock -> do
         _ <- forkIO $ recieveNode cdrt sock
-        _ <- forkIO $ updateNode cdrt sock
-        forever $ threadDelay 99999999
+        updateNode cdrt sock
     return (addDelta cdrt, fmap currentData . atomically $ readTVar cdrt)
     where
         makeSocket = do
