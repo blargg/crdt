@@ -1,15 +1,16 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 module LesserActionSpec where
 
-import Algebra.LesserAction
-import Algebra.SemiLatticeAction
-import Data.Set
-import Data.Proxy
-import Data.ChatData
-import Data.Map (Map)
+import           Algebra.LesserAction
+import           Algebra.SemiLatticeAction
+import           Data.ChatData
+import           Data.Map                  (Map)
+import           Data.Proxy
+import           Data.Set
 
-import Test.Tasty
-import Test.Tasty.QuickCheck
+import           Test.Tasty
+import           Test.Tasty.QuickCheck
 
 allLesserAction :: TestTree
 allLesserAction = testGroup "LesserAction"

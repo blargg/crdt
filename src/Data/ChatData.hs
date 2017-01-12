@@ -1,21 +1,21 @@
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE DeriveGeneric #-}
 
 module Data.ChatData ( ChatData(..)
                      , addMessageDelta
                      , empty) where
 
 import           Algebra.Lattice
-import           Data.Map                (Map)
-import qualified Data.Map                as M
-import           Data.Set                (Set)
-import qualified Data.Set                as S
-import GHC.Generics
+import           Data.Map                  (Map)
+import qualified Data.Map                  as M
 import           Data.Serialize
-import Test.QuickCheck.Arbitrary
+import           Data.Set                  (Set)
+import qualified Data.Set                  as S
+import           GHC.Generics
+import           Test.QuickCheck.Arbitrary
 
-import Algebra.SemiLatticeAction
-import Algebra.LesserAction
+import           Algebra.LesserAction
+import           Algebra.SemiLatticeAction
 
 data ChatData a = ChatData { lamportTime :: Int
                            , messages    :: Map Int (Set a) }

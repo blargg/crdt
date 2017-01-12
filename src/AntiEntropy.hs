@@ -1,30 +1,31 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 module AntiEntropy ( emptyState
                    , initialState
                    , runNode
                    ) where
 
-import GHC.Generics
-import Network.Socket
-import NetworkUtil
-import Control.Monad (void, forever, unless)
-import Control.Exception
-import Control.Monad.STM
-import Control.Concurrent.STM.TVar
-import Control.Concurrent (forkIO, threadDelay)
-import Data.Serialize
-import Data.Maybe (fromMaybe)
+import           Control.Concurrent          (forkIO, threadDelay)
+import           Control.Concurrent.STM.TVar
+import           Control.Exception
+import           Control.Monad               (forever, unless, void)
+import           Control.Monad.STM
+import           Data.Maybe                  (fromMaybe)
+import           Data.Serialize
+import           GHC.Generics
+import           Network.Socket
+import           NetworkUtil
 
-import qualified Network.Socket.ByteString as NB
-import Data.Proxy
+import           Data.Proxy
+import qualified Network.Socket.ByteString   as NB
 
-import System.Log.Logger
+import           System.Log.Logger
 
-import Algebra.SemiLatticeAction
-import Algebra.LesserAction
-import Data.MultiAckSet
+import           Algebra.LesserAction
+import           Algebra.SemiLatticeAction
+import           Data.MultiAckSet
 
 type MessageId = Int
 
@@ -34,9 +35,9 @@ data Message a = Payload a MessageId
                 deriving (Generic)
 instance (Serialize a) => Serialize (Message a)
 
-data NodeState d a = NodeState { ackMap :: MultiAckSet SockAddr MessageId d
-                             , currentData :: a
-                             }
+data NodeState d a = NodeState { ackMap      :: MultiAckSet SockAddr MessageId d
+                               , currentData :: a
+                               }
 
 emptyState :: a -> NodeState d a
 emptyState = NodeState empty
@@ -63,7 +64,7 @@ runNode x port ns = do
         splitAddress :: String -> (String, String)
         splitAddress s = case break (== ':') s of
             (server,':':rs) -> (server, rs)
-            i -> i
+            i               -> i
 
 recieveNode :: (JoinLesserAction d a, Serialize d, Show a) => TVar (NodeState d a) -> Socket -> IO ()
 recieveNode state conn = do

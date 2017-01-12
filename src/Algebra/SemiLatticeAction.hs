@@ -4,9 +4,9 @@
 module Algebra.SemiLatticeAction where
 
 import           Algebra.Lattice
-import Algebra.Lattice.Ordered
-import Data.Map (Map)
-import Data.Set (Set)
+import           Algebra.Lattice.Ordered
+import           Data.Map                (Map)
+import           Data.Set                (Set)
 
 -- |
 -- Class where SemiLattice @s@ acts on @a@

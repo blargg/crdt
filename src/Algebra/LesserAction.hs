@@ -1,16 +1,16 @@
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Algebra.LesserAction where
 
 
 import           Algebra.Lattice.Ordered
 import           Algebra.SemiLatticeAction
+import           Data.Map                  (Map)
+import qualified Data.Map                  as M
 import           Data.Set                  (Set)
 import qualified Data.Set                  as S
-import Data.Map (Map)
-import qualified Data.Map as M
 
 -- |
 -- Check if applying the semilattice value would have any affect

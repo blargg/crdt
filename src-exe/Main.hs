@@ -1,14 +1,14 @@
-import AntiEntropy
-import Control.Monad (when, forever)
-import Options.Applicative
-import Network.Socket (PortNumber(..))
-import Data.ChatData (ChatData)
-import qualified Data.ChatData as CD
+import           AntiEntropy
+import           Control.Monad       (forever, when)
+import           Data.ChatData       (ChatData)
+import qualified Data.ChatData       as CD
+import           Network.Socket      (PortNumber (..))
+import           Options.Applicative
 
-import System.Log.Logger
+import           System.Log.Logger
 
-data NodeSettings = NodeSettings { port :: PortNumber
-                                 , debug :: Bool
+data NodeSettings = NodeSettings { port         :: PortNumber
+                                 , debug        :: Bool
                                  , neighborURLs :: [String]
                                  }
 
@@ -42,4 +42,4 @@ main = do
         line <- getLine
         case line of
             "show" -> getData >>= print
-            raw -> addDeltaCallback . CD.addMessageDelta raw =<< getData
+            raw    -> addDeltaCallback . CD.addMessageDelta raw =<< getData

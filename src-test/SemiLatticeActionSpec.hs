@@ -1,14 +1,15 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 module SemiLatticeActionSpec where
 
-import Test.Tasty
-import Test.Tasty.QuickCheck
-import Algebra.SemiLatticeAction
-import Data.Set
-import Algebra.Lattice
-import Data.Proxy
-import Data.ChatData
-import Data.Map (Map)
+import           Algebra.Lattice
+import           Algebra.SemiLatticeAction
+import           Data.ChatData
+import           Data.Map                  (Map)
+import           Data.Proxy
+import           Data.Set
+import           Test.Tasty
+import           Test.Tasty.QuickCheck
 
 allSemiLatticeAction :: TestTree
 allSemiLatticeAction = testGroup "SemiLatticeAction"

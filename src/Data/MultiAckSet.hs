@@ -10,11 +10,11 @@ module Data.MultiAckSet ( MultiAckSet()
                         , singleAck
                         ) where
 
-import qualified Data.Map as M
-import qualified Data.Set as S
-import Data.AckSet hiding (empty)
-import qualified Data.AckSet as AS
-import Data.Universe
+import           Data.AckSet   hiding (empty)
+import qualified Data.AckSet   as AS
+import qualified Data.Map      as M
+import qualified Data.Set      as S
+import           Data.Universe
 
 newtype MultiAckSet n i a = MultiAckSet { toMap :: M.Map n (AckSet i a)}
 

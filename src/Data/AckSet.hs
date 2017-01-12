@@ -6,8 +6,8 @@ module Data.AckSet ( AckSet()
                    , insert
                    ) where
 
-import qualified Data.Map as M
-import Data.Universe
+import qualified Data.Map      as M
+import           Data.Universe
 
 data AckSet i a = AckSet [i] (M.Map i a)
 
